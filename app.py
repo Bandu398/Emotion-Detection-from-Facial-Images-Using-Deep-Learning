@@ -138,7 +138,7 @@ st.markdown("""
 # MODEL PATH
 # =========================================================
 
-MODEL_PATH = Path("model") / "emotion_model.h5"
+MODEL_PATH = Path("static") / "model" / "emotion_model.h5"
 
 
 # =========================================================
