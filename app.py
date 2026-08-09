@@ -1,10 +1,9 @@
 import streamlit as st
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
 from PIL import Image
 from pathlib import Path
-
+from tensorflow.keras.models import load_model
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -16,150 +15,61 @@ st.set_page_config(
     layout="wide"
 )
 
-
 # =========================================================
 # CUSTOM CSS
 # =========================================================
 
 st.markdown("""
 <style>
+    .main {
+        padding-top: 1rem;
+    }
 
-.stApp {
-    background-color: #f5f7fb;
-}
+    .title {
+        text-align: center;
+        font-size: 42px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background-color: #e8f0ff;
-}
+    .subtitle {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 30px;
+    }
 
-[data-testid="stSidebar"] * {
-    color: #1f2937 !important;
-}
+    .result-box {
+        padding: 20px;
+        border-radius: 15px;
+        text-align: center;
+        font-size: 25px;
+        font-weight: bold;
+        border: 1px solid #ddd;
+        margin-top: 20px;
+    }
 
-/* Main title */
-.main-title {
-    text-align: center;
-    font-size: 42px;
-    font-weight: 800;
-    color: #1e3a8a !important;
-    margin-top: 15px;
-}
-
-/* Subtitle */
-.sub-title {
-    text-align: center;
-    font-size: 19px;
-    color: #475569 !important;
-    margin-bottom: 30px;
-}
-
-/* Cards */
-.card {
-    background-color: #ffffff !important;
-    padding: 30px;
-    border-radius: 18px;
-    border: 1px solid #dbe3ef;
-    box-shadow: 0px 5px 18px rgba(0,0,0,0.08);
-    margin-top: 20px;
-}
-
-.card * {
-    color: #1f2937 !important;
-}
-
-.card h2 {
-    color: #1e40af !important;
-}
-
-.card h3 {
-    color: #2563eb !important;
-}
-
-.card p {
-    color: #334155 !important;
-    font-size: 17px;
-    line-height: 1.6;
-}
-
-/* Feature */
-.feature {
-    background-color: #f8fafc;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 10px;
-    color: #334155 !important;
-    font-size: 17px;
-}
-
-/* Result */
-.result-card {
-    background-color: #ffffff;
-    padding: 25px;
-    border-radius: 18px;
-    text-align: center;
-    border: 1px solid #dbe3ef;
-    box-shadow: 0px 5px 18px rgba(0,0,0,0.08);
-    margin-top: 20px;
-}
-
-.result-card * {
-    color: #1f2937 !important;
-}
-
-.result-title {
-    color: #1e40af !important;
-    font-size: 30px;
-    font-weight: 700;
-}
-
-.confidence {
-    color: #475569 !important;
-    font-size: 18px;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    margin-top: 50px;
-    padding: 20px;
-    color: #64748b !important;
-}
-
-.footer b {
-    color: #1e40af !important;
-}
-
+    .info-box {
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-
 # =========================================================
-# MODEL PATH
-# =========================================================
-
-MODEL_PATH = Path("static") / "model" / "emotion_model.h5"
-
-
-# =========================================================
-# LOAD MODEL
+# TITLE
 # =========================================================
 
-@st.cache_resource
-def load_emotion_model():
+st.markdown(
+    '<div class="title">😊 Emotion Detection from Facial Images</div>',
+    unsafe_allow_html=True
+)
 
-    if not MODEL_PATH.exists():
-        st.error(
-            "❌ Model file not found! "
-            "Please make sure model/emotion_model.h5 exists."
-        )
-        st.stop()
-
-    return load_model(str(MODEL_PATH))
-
-
-model = load_emotion_model()
-
+st.markdown(
+    '<div class="subtitle">AI / Deep Learning Based Facial Emotion Recognition</div>',
+    unsafe_allow_html=True
+)
 
 # =========================================================
 # EMOTION LABELS
@@ -175,193 +85,171 @@ emotion_labels = [
     "Surprise"
 ]
 
+# =========================================================
+# MODEL PATH
+# =========================================================
+
+MODEL_PATH = Path("static") / "model" / "emotion_model.h5"
+
+# =========================================================
+# LOAD MODEL
+# =========================================================
+
+@st.cache_resource
+def load_emotion_model():
+
+    if not MODEL_PATH.exists():
+        st.error(
+            f"❌ Model file not found:\n\n{MODEL_PATH}"
+        )
+        st.stop()
+
+    try:
+        return load_model(str(MODEL_PATH))
+    except Exception as e:
+        st.error(f"❌ Error loading model: {e}")
+        st.stop()
+
+
+model = load_emotion_model()
 
 # =========================================================
 # FACE DETECTOR
 # =========================================================
 
-cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+try:
 
-face_detector = cv2.CascadeClassifier(cascade_path)
+    cascade_path = (
+        cv2.data.haarcascades
+        + "haarcascade_frontalface_default.xml"
+    )
 
-if face_detector.empty():
-    st.error("❌ Face detector could not be loaded.")
+    face_detector = cv2.CascadeClassifier(cascade_path)
+
+    if face_detector.empty():
+        st.error("❌ Face detection model could not be loaded.")
+        st.stop()
+
+except Exception as e:
+
+    st.error(f"❌ OpenCV face detector error: {e}")
     st.stop()
+
+# =========================================================
+# IMAGE PREPROCESSING
+# =========================================================
+
+def preprocess_face(face):
+
+    gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+
+    resized = cv2.resize(gray, (48, 48))
+
+    normalized = resized.astype("float32") / 255.0
+
+    reshaped = np.reshape(
+        normalized,
+        (1, 48, 48, 1)
+    )
+
+    return reshaped
+
+
+# =========================================================
+# PREDICT EMOTION
+# =========================================================
+
+def predict_emotion(face):
+
+    processed_face = preprocess_face(face)
+
+    prediction = model.predict(
+        processed_face,
+        verbose=0
+    )[0]
+
+    emotion_index = int(np.argmax(prediction))
+
+    emotion = emotion_labels[emotion_index]
+
+    confidence = float(prediction[emotion_index]) * 100
+
+    return emotion, confidence, prediction
 
 
 # =========================================================
 # SIDEBAR
 # =========================================================
 
-st.sidebar.image(
-    "https://cdn-icons-png.flaticon.com/512/4712/4712027.png",
-    width=120
-)
+st.sidebar.title("⚙️ Settings")
 
-st.sidebar.title("😊 Emotion AI")
-
-st.sidebar.write("AI Facial Emotion Detection")
-
-st.sidebar.markdown("---")
-
-page = st.sidebar.radio(
-    "Navigation",
+option = st.sidebar.radio(
+    "Select Detection Mode",
     [
-        "🏠 Home",
-        "📂 Upload Image",
-        "ℹ️ About"
+        "Image Upload",
+        "Webcam"
     ]
 )
 
 st.sidebar.markdown("---")
 
 st.sidebar.info(
-    "AI / ML Internship Project 2026"
+    """
+    **Supported Emotions**
+
+    😠 Angry  
+    🤢 Disgust  
+    😨 Fear  
+    😊 Happy  
+    😐 Neutral  
+    😢 Sad  
+    😲 Surprise
+    """
 )
 
-
 # =========================================================
-# HOME PAGE
-# =========================================================
-
-if page == "🏠 Home":
-
-    st.markdown(
-        "<div class='main-title'>😊 Emotion Detection using AI</div>",
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "<div class='sub-title'>"
-        "Deep Learning • TensorFlow • OpenCV • Streamlit"
-        "</div>",
-        unsafe_allow_html=True
-    )
-
-    # Metrics
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.metric("🎭 Emotions", "7")
-
-    with c2:
-        st.metric("📂 Dataset", "FER2013")
-
-    with c3:
-        st.metric("🧠 Model", "CNN")
-
-
-    # Project features
-
-    st.markdown("""
-    <div class="card">
-
-    <h2>🚀 Project Features</h2>
-
-    <div class="feature">
-    ✅ Facial Emotion Detection
-    </div>
-
-    <div class="feature">
-    ✅ CNN Deep Learning Model
-    </div>
-
-    <div class="feature">
-    ✅ TensorFlow & Keras
-    </div>
-
-    <div class="feature">
-    ✅ OpenCV Face Detection
-    </div>
-
-    <div class="feature">
-    ✅ Streamlit Web Application
-    </div>
-
-    <div class="feature">
-    ✅ FER2013 Dataset
-    </div>
-
-    <div class="feature">
-    ✅ Confidence Score
-    </div>
-
-    </div>
-    """, unsafe_allow_html=True)
-
-
-    # How it works
-
-    st.markdown("""
-    <div class="card">
-
-    <h2>⚙️ How It Works</h2>
-
-    <p>
-    <b>Step 1:</b> Upload a facial image.
-    </p>
-
-    <p>
-    <b>Step 2:</b> OpenCV detects the face.
-    </p>
-
-    <p>
-    <b>Step 3:</b> The face is resized to 48 × 48 pixels.
-    </p>
-
-    <p>
-    <b>Step 4:</b> CNN model analyzes the facial features.
-    </p>
-
-    <p>
-    <b>Step 5:</b> The system predicts the emotion.
-    </p>
-
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# =========================================================
-# UPLOAD IMAGE PAGE
+# IMAGE UPLOAD
 # =========================================================
 
-elif page == "📂 Upload Image":
+if option == "Image Upload":
 
-    st.markdown(
-        "<div class='main-title'>📂 Upload Face Image</div>",
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "<div class='sub-title'>"
-        "Upload an image and let AI detect the facial emotion"
-        "</div>",
-        unsafe_allow_html=True
-    )
+    st.header("📷 Upload Facial Image")
 
     uploaded_file = st.file_uploader(
         "Choose an image",
         type=["jpg", "jpeg", "png"]
     )
 
-
     if uploaded_file is not None:
 
-        # Open image
-        image = Image.open(uploaded_file)
+        image = Image.open(uploaded_file).convert("RGB")
 
-        # Convert RGB
-        image = image.convert("RGB")
+        image_array = np.array(image)
 
-        # Convert to numpy
-        img = np.array(image)
+        image_bgr = cv2.cvtColor(
+            image_array,
+            cv2.COLOR_RGB2BGR
+        )
 
+        gray = cv2.cvtColor(
+            image_bgr,
+            cv2.COLOR_BGR2GRAY
+        )
 
-        # Display image
+        faces = face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.3,
+            minNeighbors=5,
+            minSize=(30, 30)
+        )
 
-        col1, col2 = st.columns(2)
+        output_image = image_bgr.copy()
 
-        with col1:
+        if len(faces) == 0:
+
+            st.warning(
+                "⚠️ No face detected. Please upload a clear facial image."
+            )
 
             st.image(
                 image,
@@ -369,247 +257,252 @@ elif page == "📂 Upload Image":
                 use_container_width=True
             )
 
-
-        # Convert to grayscale
-
-        gray = cv2.cvtColor(
-            img,
-            cv2.COLOR_RGB2GRAY
-        )
-
-
-        # Detect faces
-
-        faces = face_detector.detectMultiScale(
-            gray,
-            scaleFactor=1.3,
-            minNeighbors=5
-        )
-
-
-        if len(faces) == 0:
-
-            st.error(
-                "❌ No face detected. "
-                "Please upload a clear face image."
-            )
-
-
         else:
 
             st.success(
                 f"✅ {len(faces)} face(s) detected!"
             )
 
+            results = []
 
-            # Process each face
+            for i, (x, y, w, h) in enumerate(faces):
 
-            for index, (x, y, w, h) in enumerate(faces):
-
-                # Face ROI
-                roi = gray[y:y+h, x:x+w]
-
-
-                # Resize
-                roi = cv2.resize(
-                    roi,
-                    (48, 48)
-                )
-
-
-                # Normalize
-                roi = roi.astype("float32") / 255.0
-
-
-                # Add channel dimension
-                roi = np.expand_dims(
-                    roi,
-                    axis=-1
-                )
-
-
-                # Add batch dimension
-                roi = np.expand_dims(
-                    roi,
-                    axis=0
-                )
-
-
-                # Prediction
-
-                prediction = model.predict(
-                    roi,
-                    verbose=0
-                )
-
-
-                # Get emotion
-
-                emotion_index = np.argmax(prediction)
-
-                emotion = emotion_labels[
-                    emotion_index
+                face = image_bgr[
+                    y:y+h,
+                    x:x+w
                 ]
 
+                try:
 
-                # Confidence
-
-                confidence = (
-                    float(np.max(prediction)) * 100
-                )
-
-
-                # Result
-
-                st.markdown(
-                    f"""
-                    <div class="result-card">
-
-                    <div class="result-title">
-                    😊 Face {index + 1}: {emotion}
-                    </div>
-
-                    <div class="confidence">
-                    Confidence: {confidence:.2f}%
-                    </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-
-                st.progress(
-                    min(confidence / 100, 1.0)
-                )
-
-
-                # Emotion message
-
-                if emotion == "Happy":
-                    st.success(
-                        "😄 The detected emotion is Happy!"
+                    emotion, confidence, prediction = (
+                        predict_emotion(face)
                     )
 
-                elif emotion == "Sad":
-                    st.info(
-                        "😢 The detected emotion is Sad."
+                    results.append(
+                        (emotion, confidence)
                     )
 
-                elif emotion == "Angry":
-                    st.warning(
-                        "😠 The detected emotion is Angry."
+                    cv2.rectangle(
+                        output_image,
+                        (x, y),
+                        (x+w, y+h),
+                        (0, 255, 0),
+                        2
                     )
 
-                elif emotion == "Fear":
-                    st.warning(
-                        "😨 The detected emotion is Fear."
+                    label = (
+                        f"{emotion} "
+                        f"{confidence:.1f}%"
                     )
 
-                elif emotion == "Disgust":
-                    st.warning(
-                        "🤢 The detected emotion is Disgust."
+                    cv2.putText(
+                        output_image,
+                        label,
+                        (x, max(y - 10, 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 255, 0),
+                        2
                     )
 
-                elif emotion == "Surprise":
-                    st.info(
-                        "😲 The detected emotion is Surprise."
+                except Exception as e:
+
+                    st.error(
+                        f"Prediction error: {e}"
                     )
 
-                else:
-                    st.info(
-                        "😐 The detected emotion is Neutral."
+            output_rgb = cv2.cvtColor(
+                output_image,
+                cv2.COLOR_BGR2RGB
+            )
+
+            st.image(
+                output_rgb,
+                caption="Emotion Detection Result",
+                use_container_width=True
+            )
+
+            # =============================================
+            # RESULTS
+            # =============================================
+
+            if results:
+
+                st.subheader("🎯 Prediction Results")
+
+                for i, (emotion, confidence) in enumerate(results):
+
+                    st.markdown(
+                        f"""
+                        <div class="result-box">
+                            Face {i + 1}: {emotion}
+                            <br>
+                            <small>
+                                Confidence: {confidence:.2f}%
+                            </small>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    st.progress(
+                        min(confidence / 100, 1.0)
                     )
 
 
 # =========================================================
-# ABOUT PAGE
+# WEBCAM
 # =========================================================
 
-else:
+elif option == "Webcam":
 
-    st.markdown(
-        "<div class='main-title'>ℹ️ About Project</div>",
-        unsafe_allow_html=True
+    st.header("🎥 Webcam Emotion Detection")
+
+    st.info(
+        "Allow camera permission in your browser."
     )
 
-    st.markdown(
-        "<div class='sub-title'>"
-        "AI Based Facial Emotion Detection System"
-        "</div>",
-        unsafe_allow_html=True
+    camera_image = st.camera_input(
+        "Take a picture"
     )
 
+    if camera_image is not None:
 
-    st.markdown("""
-    <div class="card">
+        image = Image.open(
+            camera_image
+        ).convert("RGB")
 
-    <h2>😊 Emotion Detection from Facial Images</h2>
+        image_array = np.array(image)
 
-    <p>
-    This project is an Artificial Intelligence and Machine
-    Learning application that detects human emotions from
-    facial images using a trained CNN model.
-    </p>
+        image_bgr = cv2.cvtColor(
+            image_array,
+            cv2.COLOR_RGB2BGR
+        )
 
+        gray = cv2.cvtColor(
+            image_bgr,
+            cv2.COLOR_BGR2GRAY
+        )
 
-    <h3>🧠 Technologies Used</h3>
+        faces = face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.3,
+            minNeighbors=5,
+            minSize=(30, 30)
+        )
 
-    <p>✅ Python</p>
-    <p>✅ TensorFlow</p>
-    <p>✅ Keras</p>
-    <p>✅ OpenCV</p>
-    <p>✅ NumPy</p>
-    <p>✅ Streamlit</p>
-    <p>✅ FER2013 Dataset</p>
+        output_image = image_bgr.copy()
 
+        if len(faces) == 0:
 
-    <h3>🎭 Emotions Detected</h3>
+            st.warning(
+                "⚠️ No face detected."
+            )
 
-    <p>😠 Angry</p>
-    <p>🤢 Disgust</p>
-    <p>😨 Fear</p>
-    <p>😄 Happy</p>
-    <p>😐 Neutral</p>
-    <p>😢 Sad</p>
-    <p>😲 Surprise</p>
+            st.image(
+                image,
+                caption="Camera Image",
+                use_container_width=True
+            )
 
+        else:
 
-    <h3>🌐 Applications</h3>
+            results = []
 
-    <p>• Education</p>
-    <p>• Customer Feedback</p>
-    <p>• Human Computer Interaction</p>
-    <p>• Smart Applications</p>
-    <p>• AI Based Monitoring</p>
+            for x, y, w, h in faces:
 
+                face = image_bgr[
+                    y:y+h,
+                    x:x+w
+                ]
 
-    <h3>🎯 Project Objective</h3>
+                try:
 
-    <p>
-    The main objective of this project is to use Artificial
-    Intelligence and Deep Learning to automatically recognize
-    human emotions from facial expressions.
-    </p>
+                    emotion, confidence, prediction = (
+                        predict_emotion(face)
+                    )
 
-    </div>
-    """, unsafe_allow_html=True)
+                    results.append(
+                        (emotion, confidence)
+                    )
+
+                    cv2.rectangle(
+                        output_image,
+                        (x, y),
+                        (x+w, y+h),
+                        (0, 255, 0),
+                        2
+                    )
+
+                    label = (
+                        f"{emotion} "
+                        f"{confidence:.1f}%"
+                    )
+
+                    cv2.putText(
+                        output_image,
+                        label,
+                        (x, max(y - 10, 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 255, 0),
+                        2
+                    )
+
+                except Exception as e:
+
+                    st.error(
+                        f"Prediction error: {e}"
+                    )
+
+            output_rgb = cv2.cvtColor(
+                output_image,
+                cv2.COLOR_BGR2RGB
+            )
+
+            st.image(
+                output_rgb,
+                caption="Webcam Emotion Result",
+                use_container_width=True
+            )
+
+            if results:
+
+                st.subheader("🎯 Emotion Result")
+
+                for emotion, confidence in results:
+
+                    st.markdown(
+                        f"""
+                        <div class="result-box">
+                            {emotion}
+                            <br>
+                            <small>
+                                Confidence:
+                                {confidence:.2f}%
+                            </small>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    st.progress(
+                        min(confidence / 100, 1.0)
+                    )
 
 
 # =========================================================
 # FOOTER
 # =========================================================
 
-st.markdown("""
-<div class="footer">
+st.markdown("---")
 
-<p>
-Developed by <b>Anuj Bhoir</b>
-</p>
-
-<p>
-AI/ML Internship Project 2026 🚀
-</p>
-
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="text-align:center;">
+        <p>🤖 Emotion Detection using Deep Learning</p>
+        <p>Developed using Python, TensorFlow, OpenCV and Streamlit</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
