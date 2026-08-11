@@ -117,24 +117,43 @@ model = load_emotion_model()
 # FACE DETECTOR
 # =========================================================
 
-try:
+# =========================================================
+# FACE DETECTOR
+# =========================================================
 
-    cascade_path = (
-        cv2.data.haarcascades
-        + "haarcascade_frontalface_default.xml"
-    )
+CASCADE_PATH = Path("haarcascade_frontalface_default.xml")
 
-    face_detector = cv2.CascadeClassifier(cascade_path)
+if not CASCADE_PATH.exists():
+    import urllib.request
 
-    if face_detector.empty():
-        st.error("❌ Face detection model could not be loaded.")
+    try:
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml",
+            str(CASCADE_PATH)
+        )
+    except Exception as e:
+        st.error(f"❌ Could not download face detector: {e}")
         st.stop()
 
-except Exception as e:
+try:
+    face_detector = cv2.CascadeClassifier(
+        str(CASCADE_PATH)
+    )
 
-    st.error(f"❌ OpenCV face detector error: {e}")
+    if face_detector.empty():
+        st.error("❌ Face detector could not be loaded.")
+        st.stop()
+
+except AttributeError:
+    st.error(
+        "❌ OpenCV installation problem. "
+        "Please check requirements.txt."
+    )
     st.stop()
 
+except Exception as e:
+    st.error(f"❌ Face detector error: {e}")
+    st.stop()
 # =========================================================
 # IMAGE PREPROCESSING
 # =========================================================
